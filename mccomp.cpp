@@ -435,22 +435,56 @@ static bool isExprStart(int tokType) {
 }
 
 /// ASTnode (Task 1.2.2)- Base class for all AST nodes.
+
+// Helper to generate indentation
+std::string getIndent(int d) {
+  return std::string(d * 2, ' '); // 2 spaces per level
+}
+
+// Helper to convert operator tokens to strings for printing
+std::string tokenLabel(int tok) {
+  if (tok == PLUS) return "+";
+  if (tok == MINUS) return "-";
+  if (tok == ASTERIX) return "*";
+  if (tok == DIV) return "/";
+  if (tok == MOD) return "%";
+  if (tok == EQ) return "==";
+  if (tok == NE) return "!=";
+  if (tok == LT) return "<";
+  if (tok == LE) return "<=";
+  if (tok == GT) return ">";
+  if (tok == GE) return ">=";
+  if (tok == AND) return "&&";
+  if (tok == OR) return "||";
+  if (tok == NOT) return "!";
+  if (tok == ASSIGN) return "=";
+  return "unknown_op";
+}
+
 class ASTnode {
 
 public:
   virtual ~ASTnode() {}
   virtual Value *codegen() { return nullptr; };
-  virtual std::string to_string() const { return ""; };
+  // Update to accept depth
+  virtual std::string to_string(int d = 0) const { return ""; };
 };
+
+// Global operator for printing
+llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const ASTnode& ast) {
+  os << ast.to_string(0);
+  return os;
+}
 
 /// IntASTnode - Class for integer literals like 1, 2, 10,
 class IntASTnode : public ASTnode {
   int Val;
   TOKEN Tok;
-
 public:
   IntASTnode(TOKEN tok, int val) : Val(val), Tok(tok) {}
-  virtual std::string to_string() const override { return std::to_string(Val); }
+  std::string to_string(int d) const override {
+    return getIndent(d) + "IntLit: " + std::to_string(Val) + "\n";
+  }
 };
 
 /// BoolASTnode - Class for boolean literals true and false,
@@ -460,7 +494,9 @@ class BoolASTnode : public ASTnode {
 
 public:
   BoolASTnode(TOKEN tok, bool B) : Bool(B), Tok(tok) {}
-  virtual std::string to_string() const override { return Bool ? "true" : "false"; }
+  std::string to_string(int d) const override {
+    return getIndent(d) + "BoolLit: " + (Bool ? "true" : "false") + "\n";
+  }
 };
 
 /// FloatASTnode - Node class for floating point literals like "1.0".
@@ -470,12 +506,15 @@ class FloatASTnode : public ASTnode {
 
 public:
   FloatASTnode(TOKEN tok, double Val) : Val(Val), Tok(tok) {}
-  virtual std::string to_string() const override { return std::to_string(Val); }
+  std::string to_string(int d) const override {
+    return getIndent(d) + "FloatLit: " + std::to_string(Val) + "\n";
+  }
 };
 
 /// VariableASTnode - Class for referencing a variable (i.e. identifier), like
 /// "a".
 enum IDENT_TYPE { IDENTIFIER = 0 };
+
 class VariableASTnode : public ASTnode {
 protected:
   TOKEN Tok;
@@ -486,7 +525,9 @@ public:
   VariableASTnode(TOKEN tok, const std::string &Name)
       : Tok(tok), Name(Name), VarType(IDENT_TYPE::IDENTIFIER) {}
   const std::string &getName() const { return Name; }
-  virtual std::string to_string() const override { return Name; }
+  std::string to_string(int d) const override {
+    return getIndent(d) + "Variable: " + Name + "\n";
+  }
 };
 
 // Binary Expression Node (Task 1.2.2)
@@ -496,8 +537,11 @@ class BinaryExprAST : public ASTnode {
 public:
   BinaryExprAST(int op, std::unique_ptr<ASTnode> lhs, std::unique_ptr<ASTnode> rhs)
     : Op(op), LHS(std::move(lhs)), RHS(std::move(rhs)) {}
-  virtual std::string to_string() const override {
-    return "(" + LHS->to_string() + " op " + RHS->to_string() + ")";
+  std::string to_string(int d) const override {
+    std::string s = getIndent(d) + "BinaryExpr: " + tokenLabel(Op) + "\n";
+    if (LHS) s += LHS->to_string(d + 1);
+    if (RHS) s += RHS->to_string(d + 1);
+    return s;
   }
 };
 
@@ -508,8 +552,10 @@ class UnaryExprAST : public ASTnode {
 public:
   UnaryExprAST(int op, std::unique_ptr<ASTnode> operand)
     : Op(op), Operand(std::move(operand)) {}
-  virtual std::string to_string() const override {
-    return "(Unary op " + Operand->to_string() + ")";
+  std::string to_string(int d) const override {
+    std::string s = getIndent(d) + "UnaryExpr: " + tokenLabel(Op) + "\n";
+    if (Operand) s += Operand->to_string(d + 1);
+    return s;
   }
 };
 
@@ -520,8 +566,10 @@ class CallExprAST : public ASTnode {
 public:
   CallExprAST(const std::string &callee, std::vector<std::unique_ptr<ASTnode>> args)
     : Callee(callee), Args(std::move(args)) {}
-  virtual std::string to_string() const override {
-    return "call " + Callee;
+  std::string to_string(int d) const override {
+    std::string s = getIndent(d) + "Call: " + Callee + "\n";
+    for (auto &arg : Args) s += arg->to_string(d + 1);
+    return s;
   }
 };
 
@@ -535,6 +583,43 @@ public:
       : Name(name), Type(type) {}
   const std::string &getName() const { return Name; }
   const std::string &getType() const { return Type; }
+  // Helper to_string 
+  std::string to_string(int d) const {
+    return getIndent(d) + "Param: " + Type + " " + Name + "\n";
+  }
+};
+
+/// FunctionPrototypeAST - Class for a function declaration's signature
+class FunctionPrototypeAST : public ASTnode {
+  std::string Name;
+  std::string Type;
+  std::vector<std::unique_ptr<ParamAST>> Params;
+public:
+  FunctionPrototypeAST(const std::string &name, const std::string &type,
+                       std::vector<std::unique_ptr<ParamAST>> params)
+      : Name(name), Type(type), Params(std::move(params)) {}
+   
+  const std::string &getName() const { return Name; }
+  std::vector<std::unique_ptr<ParamAST>> &getParams() { return Params; }
+
+  std::string to_string(int d) const override {
+      std::string s = getIndent(d) + "Prototype: " + Type + " " + Name + "\n";
+      for(auto &p : Params) s += p->to_string(d + 1);
+      return s;
+  }
+};
+
+// New Program Root Node
+class ProgramAST : public ASTnode {
+    std::vector<std::unique_ptr<ASTnode>> Elements;
+public:
+    ProgramAST(std::vector<std::unique_ptr<ASTnode>> elements) 
+        : Elements(std::move(elements)) {}
+    std::string to_string(int d) const override {
+        std::string s = "Program:\n";
+        for(auto &e : Elements) s += e->to_string(d + 1);
+        return s;
+    }
 };
 
 /// DeclAST - Base class for declarations, variables and functions
@@ -553,6 +638,9 @@ public:
   VarDeclAST(std::unique_ptr<VariableASTnode> var, const std::string &type)
       : Var(std::move(var)), Type(type) {}
   const std::string &getName() const { return Var->getName(); }
+  std::string to_string(int d) const override {
+      return getIndent(d) + "VarDecl: " + Type + " " + Var->getName() + "\n";
+  }
 };
 
 /// GlobVarDeclAST - Class for a Global variable declaration
@@ -563,33 +651,27 @@ class GlobVarDeclAST : public DeclAST {
 public:
   GlobVarDeclAST(std::unique_ptr<VariableASTnode> var, const std::string &type)
       : Var(std::move(var)), Type(type) {}
+  std::string to_string(int d) const override {
+      return getIndent(d) + "GlobVarDecl: " + Type + " " + Var->getName() + "\n";
+  }
 };
 
-/// FunctionPrototypeAST - Class for a function declaration's signature
-class FunctionPrototypeAST {
-  std::string Name;
-  std::string Type;
-  std::vector<std::unique_ptr<ParamAST>> Params; // vector of parameters
-
-public:
-  FunctionPrototypeAST(const std::string &name, const std::string &type,
-                       std::vector<std::unique_ptr<ParamAST>> params)
-      : Name(name), Type(type), Params(std::move(params)) {}
-   
-  const std::string &getName() const { return Name; }
-  std::vector<std::unique_ptr<ParamAST>> &getParams() { return Params; }
-};
 
 /// BlockAST - Class for a block with declarations followed by statements
 class BlockAST : public ASTnode {
-  std::vector<std::unique_ptr<VarDeclAST>> LocalDecls; // vector of local decls
-  std::vector<std::unique_ptr<ASTnode>> Stmts;         // vector of statements
-
+  std::vector<std::unique_ptr<VarDeclAST>> LocalDecls;
+  std::vector<std::unique_ptr<ASTnode>> Stmts;
 public:
   BlockAST(std::vector<std::unique_ptr<VarDeclAST>> localDecls,
            std::vector<std::unique_ptr<ASTnode>> stmts)
       : LocalDecls(std::move(localDecls)), Stmts(std::move(stmts)) {}
-  virtual std::string to_string() const override { return "Block"; }
+  
+  std::string to_string(int d) const override {
+      std::string s = getIndent(d) + "Block:\n";
+      for(auto &v : LocalDecls) s += v->to_string(d + 1);
+      for(auto &st : Stmts) s += st->to_string(d + 1);
+      return s;
+  }
 };
 
 /// FunctionDeclAST - This class represents a function definition itself.
@@ -601,6 +683,13 @@ public:
   FunctionDeclAST(std::unique_ptr<FunctionPrototypeAST> Proto,
                   std::unique_ptr<ASTnode> Block)
       : Proto(std::move(Proto)), Block(std::move(Block)) {}
+  
+  std::string to_string(int d) const override {
+      std::string s = getIndent(d) + "FunctionDecl:\n";
+      s += Proto->to_string(d + 1);
+      s += Block->to_string(d + 1);
+      return s;
+  }
 };
 
 /// IfExprAST - Expression class for if/then/else.
@@ -610,7 +699,14 @@ public:
   IfExprAST(std::unique_ptr<ASTnode> Cond, std::unique_ptr<ASTnode> Then,
             std::unique_ptr<ASTnode> Else)
       : Cond(std::move(Cond)), Then(std::move(Then)), Else(std::move(Else)) {}
-  virtual std::string to_string() const override { return "If Statement"; }
+  
+  std::string to_string(int d) const override {
+      std::string s = getIndent(d) + "IfStmt:\n";
+      s += getIndent(d+1) + "Condition:\n" + Cond->to_string(d + 2);
+      s += getIndent(d+1) + "Then:\n" + Then->to_string(d + 2);
+      if (Else) s += getIndent(d+1) + "Else:\n" + Else->to_string(d + 2);
+      return s;
+  }
 };
 
 /// WhileExprAST - Expression class for while.
@@ -619,7 +715,13 @@ class WhileExprAST : public ASTnode {
 public:
   WhileExprAST(std::unique_ptr<ASTnode> cond, std::unique_ptr<ASTnode> body)
       : Cond(std::move(cond)), Body(std::move(body)) {}
-  virtual std::string to_string() const override { return "While Statement"; }
+  
+  std::string to_string(int d) const override {
+      std::string s = getIndent(d) + "WhileStmt:\n";
+      s += getIndent(d+1) + "Condition:\n" + Cond->to_string(d + 2);
+      s += getIndent(d+1) + "Body:\n" + Body->to_string(d + 2);
+      return s;
+  }
 };
 
 /// ReturnAST - Class for a return value
@@ -627,7 +729,13 @@ class ReturnAST : public ASTnode {
   std::unique_ptr<ASTnode> Val;
 public:
   ReturnAST(std::unique_ptr<ASTnode> value) : Val(std::move(value)) {}
-  virtual std::string to_string() const override { return "Return Statement"; }
+  
+  std::string to_string(int d) const override {
+      std::string s = getIndent(d) + "ReturnStmt:\n";
+      if (Val) s += Val->to_string(d + 1);
+      else s += getIndent(d+1) + "(void)\n";
+      return s;
+  }
 };
 
 // Updated Error Handling
@@ -902,15 +1010,13 @@ static std::unique_ptr<ASTnode> ParseIfStmt() {
   if (CurTok.type != RPAR) return LogError(CurTok, "Expected ')' after condition");
   getNextToken(); // eat )
    
-  if (CurTok.type != LBRA) return LogError(CurTok, "Expected '{' in if block");
-  auto Then = ParseBlock();
+  auto Then = ParseStmt(); // Changed from ParseBlock() to ParseStmt()
   if (!Then) return nullptr;
    
   std::unique_ptr<ASTnode> Else = nullptr;
   if (CurTok.type == ELSE) {
     getNextToken(); // eat else
-    if (CurTok.type != LBRA) return LogError(CurTok, "Expected '{' in else block");
-    Else = ParseBlock();
+    Else = ParseStmt();
     if (!Else) return nullptr;
   }
   return std::make_unique<IfExprAST>(std::move(Cond), std::move(Then), std::move(Else));
@@ -920,15 +1026,16 @@ static std::unique_ptr<ASTnode> ParseWhileStmt() {
   getNextToken(); // eat while
   if (CurTok.type != LPAR) return LogError(CurTok, "Expected '(' after while");
   getNextToken(); // eat (
+
   auto Cond = ParseExper();
   if (!Cond) return nullptr;
+
   if (CurTok.type != RPAR) return LogError(CurTok, "Expected ')' after condition");
   getNextToken(); // eat )
-   
-  if (CurTok.type != LBRA) return LogError(CurTok, "Expected '{' in while block");
-  auto Body = ParseStmt(); // Note: Grammar says stmt, usually it's a block
+
+  auto Body = ParseStmt(); 
   if (!Body) return nullptr;
-   
+
   return std::make_unique<WhileExprAST>(std::move(Cond), std::move(Body));
 }
 
@@ -1075,10 +1182,12 @@ static std::unique_ptr<ASTnode> ParseDecl() {
   return LogError(PrevTok, "Expected Identifier");
 }
 
-static void ParseDeclList() {
+// now appends to elements
+static void ParseDeclList(std::vector<std::unique_ptr<ASTnode>> &elements) {
   while (isType(CurTok.type)) {
     auto decl = ParseDecl();
-    if (!decl) break;
+    if (decl) elements.push_back(std::move(decl));
+    else break;
   }
 }
 
@@ -1107,16 +1216,23 @@ static std::unique_ptr<FunctionPrototypeAST> ParseExtern() {
   return std::make_unique<FunctionPrototypeAST>(Name, Type, std::move(params));
 }
 
-static void ParseExternList() {
+// now appends to elements
+static void ParseExternList(std::vector<std::unique_ptr<ASTnode>> &elements) {
   while (CurTok.type == EXTERN) {
-    ParseExtern();
+    auto proto = ParseExtern();
+    if (proto) elements.push_back(std::move(proto));
   }
 }
 
-static void parser() {
+static std::unique_ptr<ProgramAST> parser() {
   getNextToken(); // Prime the pump
-  ParseExternList();
-  ParseDeclList();
+  
+  std::vector<std::unique_ptr<ASTnode>> elements;
+  
+  ParseExternList(elements);
+  ParseDeclList(elements);
+  
+  return std::make_unique<ProgramAST>(std::move(elements));
 }
 
 //===----------------------------------------------------------------------===//
@@ -1143,33 +1259,23 @@ int main(int argc, char **argv) {
   if (argc == 2) {
     pFile = fopen(argv[1], "r");
     if (pFile == NULL) { perror("Error opening file"); return 1; }
-    if (pFile == NULL)
-      perror("Error opening file");
   } else {
-    std::cout << "Usage: ./code InputFile\n";
+    std::cout << "Usage: ./mccomp InputFile\n";
     return 1;
   }
 
-  // initialize line number and column numbers to zero
-  lineNo = 1;
-  columnNo = 1;
-
-  // get the first token
-  getNextToken();
-  while (CurTok.type != EOF_TOK) {
-    fprintf(stderr, "Token: %s with type %d\n", CurTok.lexeme.c_str(),
-            CurTok.type);
-    getNextToken();
-  }
-  fprintf(stderr, "Lexer Finished\n");
-
-  // Make the module, which holds all the code.
+  lineNo = 1; columnNo = 1;
   TheModule = std::make_unique<Module>("mini-c", TheContext);
 
-  // Run the parser
-  parser();
+  // Run the parser and capture the Root AST
+  auto RootAST = parser();
    
   fprintf(stderr, "Parsing Finished\n");
+
+  // Print the AST (This is the goal of Task 3)
+  if (RootAST) {
+      llvm::outs() << *RootAST << "\n";
+  }
 
   auto Filename = "output.ll";
   std::error_code EC;
