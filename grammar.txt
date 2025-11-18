@@ -1,92 +1,130 @@
-program ::= extern_list decl_list
-           |
-           decl_list
-  extern_list ::= extern_list extern
-               |
-               extern
-  extern ::= "extern" type_spec IDENT "(" params ")" ";"
-  decl_list ::= decl_list decl
-             |
-             decl
-  decl ::= var_decl
-        |
-        fun_decl
-  var_decl ::= var_type IDENT ";"
-  type_spec ::= "void"
-             |
-             var_type
-  var_type  ::= "int" |  "float" | "bool"
-  fun_decl ::= type_spec IDENT "(" params ")" block
-  params ::= param_list
-          |
-          "void" | epsilon
-  param_list ::= param_list "," param
-              |
-              param
-  param ::= var_type IDENT
-  block ::= "{" local_decls stmt_list "}"
-  local_decls ::= local_decls local_decl
-               |
-               epsilon
-  local_decl ::= var_type IDENT ";"
-  stmt_list ::= stmt_list stmt
-             |
-             epsilon
-  stmt ::= expr_stmt
-        |
-        block
-        |  if_stmt
-        |
-        while_stmt
-        |  return_stmt
-  expr_stmt ::= expr ";"
-             |  ";"
-  while_stmt ::= "while" "(" expr ")" stmt
-  if_stmt ::= "if" "(" expr ")" block else_stmt
-  else_stmt  ::= "else" block
-              |
-              epsilon
-  return_stmt ::= "return" ";"
-               |  "return" expr ";"
-# operators in order of increasing precedence
-  expr ::= IDENT "=" expr
-        |
-        assign_expr
+// Program Structure 
+program          ::= extern_list decl_list
+                   | decl_list
 
-  assign_expr ::= logical_or_expr
+extern_list      ::= extern extern_list
+                   | epsilon
 
-  logical_or_expr ::= logical_and_expr ( "||" logical_and_expr )*
+extern           ::= "extern" type_spec IDENT "(" params ")" ";"
 
-  logical_and_expr ::= equality_expr ( "&&" equality_expr )*
+decl_list        ::= decl decl_list_prime
+decl_list_prime  ::= decl decl_list_prime
+                   | epsilon
 
-  equality_expr ::= relational_expr ( ( "==" | "!=" ) relational_expr )*
+decl             ::= var_decl
+                   | fun_decl
 
-  relational_expr ::= additive_expr ( ( "<" | ">" | "<=" | ">=" ) additive_expr )*
+var_decl         ::= var_type IDENT ";"
 
-  additive_expr ::= multiplicative_expr ( ( "+" | "-" ) multiplicative_expr )*
+type_spec        ::= "void"
+                   | var_type
 
-  multiplicative_expr ::= unary_expr ( ( "*" | "/" | "%" ) unary_expr )*
+var_type         ::= "int" | "float" | "bool"
 
-  unary_expr ::= "!" unary_expr
-            |
-            "-" unary_expr
-            |
-            primary_expr
+fun_decl         ::= type_spec IDENT "(" params ")" block
 
-  primary_expr ::= IDENT
-              |
-              IDENT "(" args ")"
-              |
-              INT_LIT
-              |
-              FLOAT_LIT
-              |
-              BOOL_LIT
-              |
-              "(" expr ")"
+params           ::= param_list
+                   | "void" 
+                   | epsilon
 
-  args ::= arg_list
-        |
-        epsilon
+// Fixed Left Recursion for param_list
+param_list       ::= param param_list_prime
+param_list_prime ::= "," param param_list_prime
+                   | epsilon
 
-  arg_list ::= expr ( "," expr )*
+param            ::= var_type IDENT
+
+block            ::= "{" local_decls stmt_list "}"
+
+// Fixed Left Recursion for local_decls
+local_decls      ::= local_decl local_decls
+                   | epsilon
+
+local_decl       ::= var_type IDENT ";"
+
+// Fixed Left Recursion for stmt_list
+stmt_list        ::= stmt stmt_list
+                   | epsilon
+
+// --- Statements ---
+stmt             ::= expr_stmt
+                   | block
+                   | if_stmt
+                   | while_stmt
+                   | return_stmt
+
+expr_stmt        ::= expr ";"
+                   | ";"
+
+while_stmt       ::= "while" "(" expr ")" stmt
+
+if_stmt          ::= "if" "(" expr ")" block else_stmt
+
+else_stmt        ::= "else" block
+                   | epsilon
+
+return_stmt      ::= "return" ";"
+                   | "return" expr ";"
+
+// Expressions (Precedence Encoded)
+// 1. Assignment (Lowest Precedence)
+expr             ::= IDENT "=" expr
+                   | logical_or_expr
+
+// 2. Logical OR
+logical_or_expr  ::= logical_and_expr logical_or_prime
+logical_or_prime ::= "||" logical_and_expr logical_or_prime
+                   | epsilon
+
+// 3. Logical AND
+logical_and_expr ::= equality_expr logical_and_prime
+logical_and_prime::= "&&" equality_expr logical_and_prime
+                   | epsilon
+
+// 4. Equality (==, !=)
+equality_expr    ::= relational_expr equality_prime
+equality_prime   ::= "==" relational_expr equality_prime
+                   | "!=" relational_expr equality_prime
+                   | epsilon
+
+// 5. Relational (<, <=, >, >=)
+relational_expr  ::= additive_expr relational_prime
+relational_prime ::= "<"  additive_expr relational_prime
+                   | "<=" additive_expr relational_prime
+                   | ">"  additive_expr relational_prime
+                   | ">=" additive_expr relational_prime
+                   | epsilon
+
+// 6. Additive (+, -)
+additive_expr    ::= multiplicative_expr additive_prime
+additive_prime   ::= "+" multiplicative_expr additive_prime
+                   | "-" multiplicative_expr additive_prime
+                   | epsilon
+
+// 7. Multiplicative (*, /, %)
+multiplicative_expr  ::= unary_expr multiplicative_prime
+multiplicative_prime ::= "*" unary_expr multiplicative_prime
+                       | "/" unary_expr multiplicative_prime
+                       | "%" unary_expr multiplicative_prime
+                       | epsilon
+
+// 8. Unary (!, -)
+unary_expr       ::= "!" unary_expr
+                   | "-" unary_expr
+                   | primary_expr
+
+// 9. Primary (Highest Precedence)
+primary_expr     ::= IDENT
+                   | IDENT "(" args ")"
+                   | INT_LIT
+                   | FLOAT_LIT
+                   | BOOL_LIT
+                   | "(" expr ")"
+
+// Fixed Left Recursion for args
+args             ::= arg_list
+                   | epsilon
+
+arg_list         ::= expr arg_list_prime
+arg_list_prime   ::= "," expr arg_list_prime
+                   | epsilon

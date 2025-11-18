@@ -423,7 +423,18 @@ static TOKEN getNextToken() {
 
 static void putBackToken(TOKEN tok) { tok_buffer.push_front(tok); }
 
-/// ASTnode - Base class for all AST nodes.
+// Helper functions for FIRST sets (Task 1.2.3) 
+static bool isType(int tokType) {
+  return (tokType == INT_TOK || tokType == FLOAT_TOK || tokType == BOOL_TOK || tokType == VOID_TOK);
+}
+
+static bool isExprStart(int tokType) {
+  return (tokType == IDENT || tokType == INT_LIT || tokType == FLOAT_LIT || 
+          tokType == BOOL_LIT || tokType == NOT || tokType == MINUS || 
+          tokType == LPAR);
+}
+
+/// ASTnode (Task 1.2.2)- Base class for all AST nodes.
 class ASTnode {
 
 public:
@@ -436,11 +447,10 @@ public:
 class IntASTnode : public ASTnode {
   int Val;
   TOKEN Tok;
-  std::string Name;
 
 public:
   IntASTnode(TOKEN tok, int val) : Val(val), Tok(tok) {}
-  const std::string &getType() const { return Tok.lexeme; }
+  virtual std::string to_string() const override { return std::to_string(Val); }
 };
 
 /// BoolASTnode - Class for boolean literals true and false,
@@ -450,7 +460,7 @@ class BoolASTnode : public ASTnode {
 
 public:
   BoolASTnode(TOKEN tok, bool B) : Bool(B), Tok(tok) {}
-  const std::string &getType() const { return Tok.lexeme; }
+  virtual std::string to_string() const override { return Bool ? "true" : "false"; }
 };
 
 /// FloatASTnode - Node class for floating point literals like "1.0".
@@ -460,7 +470,7 @@ class FloatASTnode : public ASTnode {
 
 public:
   FloatASTnode(TOKEN tok, double Val) : Val(Val), Tok(tok) {}
-  const std::string &getType() const { return Tok.lexeme; }
+  virtual std::string to_string() const override { return std::to_string(Val); }
 };
 
 /// VariableASTnode - Class for referencing a variable (i.e. identifier), like
@@ -476,8 +486,43 @@ public:
   VariableASTnode(TOKEN tok, const std::string &Name)
       : Tok(tok), Name(Name), VarType(IDENT_TYPE::IDENTIFIER) {}
   const std::string &getName() const { return Name; }
-  const std::string &getType() const { return Tok.lexeme; }
-  const IDENT_TYPE getVarType() const { return VarType; }
+  virtual std::string to_string() const override { return Name; }
+};
+
+// Binary Expression Node (Task 1.2.2)
+class BinaryExprAST : public ASTnode {
+  int Op;
+  std::unique_ptr<ASTnode> LHS, RHS;
+public:
+  BinaryExprAST(int op, std::unique_ptr<ASTnode> lhs, std::unique_ptr<ASTnode> rhs)
+    : Op(op), LHS(std::move(lhs)), RHS(std::move(rhs)) {}
+  virtual std::string to_string() const override {
+    return "(" + LHS->to_string() + " op " + RHS->to_string() + ")";
+  }
+};
+
+// Unary Expression Node (Task 1.2.2)
+class UnaryExprAST : public ASTnode {
+  int Op;
+  std::unique_ptr<ASTnode> Operand;
+public:
+  UnaryExprAST(int op, std::unique_ptr<ASTnode> operand)
+    : Op(op), Operand(std::move(operand)) {}
+  virtual std::string to_string() const override {
+    return "(Unary op " + Operand->to_string() + ")";
+  }
+};
+
+// Function Call Node (Task 1.2.2)
+class CallExprAST : public ASTnode {
+  std::string Callee;
+  std::vector<std::unique_ptr<ASTnode>> Args;
+public:
+  CallExprAST(const std::string &callee, std::vector<std::unique_ptr<ASTnode>> args)
+    : Callee(callee), Args(std::move(args)) {}
+  virtual std::string to_string() const override {
+    return "call " + Callee;
+  }
 };
 
 /// ParamAST - Class for a parameter declaration
@@ -507,7 +552,6 @@ class VarDeclAST : public DeclAST {
 public:
   VarDeclAST(std::unique_ptr<VariableASTnode> var, const std::string &type)
       : Var(std::move(var)), Type(type) {}
-  const std::string &getType() const { return Type; }
   const std::string &getName() const { return Var->getName(); }
 };
 
