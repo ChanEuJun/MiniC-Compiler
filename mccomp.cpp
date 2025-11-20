@@ -70,8 +70,6 @@ enum TOKEN_TYPE {
   ELSE = -8,    // "else"
   WHILE = -9,   // "while"
   RETURN = -10, // "return"
-  // TRUE   = -12,     // "true"
-  // FALSE   = -13,     // "false"
 
   // literals
   INT_LIT = -14,   // [0-9]+
@@ -167,13 +165,9 @@ static TOKEN returnTok(std::string lexVal, int tok_type) {
   return return_tok;
 }
 
-// Read file line by line -- or look for \n and if found add 1 to line number
-// and reset column number to 0
-/// gettok - Return the next token from standard input.
+// Read file line by line
 static TOKEN gettok() {
-
   static int LastChar = ' ';
-  static int NextChar = ' ';
 
   // Skip any whitespace.
   while (isspace(LastChar)) {
@@ -185,214 +179,98 @@ static TOKEN gettok() {
     columnNo++;
   }
 
-  if (isalpha(LastChar) ||
-      (LastChar == '_')) { // identifier: [a-zA-Z_][a-zA-Z_0-9]*
+  if (isalpha(LastChar) || (LastChar == '_')) { 
     globalLexeme = LastChar;
     columnNo++;
-
     while (isalnum((LastChar = getc(pFile))) || (LastChar == '_')) {
       globalLexeme += LastChar;
       columnNo++;
     }
 
-    if (globalLexeme == "int")
-      return returnTok("int", INT_TOK);
-    if (globalLexeme == "bool")
-      return returnTok("bool", BOOL_TOK);
-    if (globalLexeme == "float")
-      return returnTok("float", FLOAT_TOK);
-    if (globalLexeme == "void")
-      return returnTok("void", VOID_TOK);
-    if (globalLexeme == "bool")
-      return returnTok("bool", BOOL_TOK);
-    if (globalLexeme == "extern")
-      return returnTok("extern", EXTERN);
-    if (globalLexeme == "if")
-      return returnTok("if", IF);
-    if (globalLexeme == "else")
-      return returnTok("else", ELSE);
-    if (globalLexeme == "while")
-      return returnTok("while", WHILE);
-    if (globalLexeme == "return")
-      return returnTok("return", RETURN);
-    if (globalLexeme == "true") {
-      //   BoolVal = true;
-      return returnTok("true", BOOL_LIT);
-    }
-    if (globalLexeme == "false") {
-      //   BoolVal = false;
-      return returnTok("false", BOOL_LIT);
-    }
+    if (globalLexeme == "int") return returnTok("int", INT_TOK);
+    if (globalLexeme == "bool") return returnTok("bool", BOOL_TOK);
+    if (globalLexeme == "float") return returnTok("float", FLOAT_TOK);
+    if (globalLexeme == "void") return returnTok("void", VOID_TOK);
+    if (globalLexeme == "extern") return returnTok("extern", EXTERN);
+    if (globalLexeme == "if") return returnTok("if", IF);
+    if (globalLexeme == "else") return returnTok("else", ELSE);
+    if (globalLexeme == "while") return returnTok("while", WHILE);
+    if (globalLexeme == "return") return returnTok("return", RETURN);
+    if (globalLexeme == "true") return returnTok("true", BOOL_LIT);
+    if (globalLexeme == "false") return returnTok("false", BOOL_LIT);
     return returnTok(globalLexeme.c_str(), IDENT);
   }
 
   if (LastChar == '=') {
-    NextChar = getc(pFile);
-    if (NextChar == '=') { // EQ: ==
-      LastChar = getc(pFile);
-      columnNo += 2;
-      return returnTok("==", EQ);
-    } else {
-      LastChar = NextChar;
-      columnNo++;
-      return returnTok("=", ASSIGN);
-    }
+    int NextChar = getc(pFile);
+    if (NextChar == '=') { LastChar = getc(pFile); columnNo += 2; return returnTok("==", EQ); }
+    else { LastChar = NextChar; columnNo++; return returnTok("=", ASSIGN); }
   }
 
-  if (LastChar == '{') {
-    LastChar = getc(pFile);
-    columnNo++;
-    return returnTok("{", LBRA);
-  }
-  if (LastChar == '}') {
-    LastChar = getc(pFile);
-    columnNo++;
-    return returnTok("}", RBRA);
-  }
-  if (LastChar == '(') {
-    LastChar = getc(pFile);
-    columnNo++;
-    return returnTok("(", LPAR);
-  }
-  if (LastChar == ')') {
-    LastChar = getc(pFile);
-    columnNo++;
-    return returnTok(")", RPAR);
-  }
-  if (LastChar == ';') {
-    LastChar = getc(pFile);
-    columnNo++;
-    return returnTok(";", SC);
-  }
-  if (LastChar == ',') {
-    LastChar = getc(pFile);
-    columnNo++;
-    return returnTok(",", COMMA);
-  }
+  if (LastChar == '{') { LastChar = getc(pFile); columnNo++; return returnTok("{", LBRA); }
+  if (LastChar == '}') { LastChar = getc(pFile); columnNo++; return returnTok("}", RBRA); }
+  if (LastChar == '(') { LastChar = getc(pFile); columnNo++; return returnTok("(", LPAR); }
+  if (LastChar == ')') { LastChar = getc(pFile); columnNo++; return returnTok(")", RPAR); }
+  if (LastChar == ';') { LastChar = getc(pFile); columnNo++; return returnTok(";", SC); }
+  if (LastChar == ',') { LastChar = getc(pFile); columnNo++; return returnTok(",", COMMA); }
 
-  if (isdigit(LastChar) || LastChar == '.') { // Number: [0-9]+.
+  if (isdigit(LastChar) || LastChar == '.') {
     std::string NumStr;
-
-    if (LastChar == '.') { // Floatingpoint Number: .[0-9]+
-      do {
-        NumStr += LastChar;
-        LastChar = getc(pFile);
-        columnNo++;
-      } while (isdigit(LastChar));
-
-      //   FloatVal = strtof(NumStr.c_str(), nullptr);
+    if (LastChar == '.') {
+      do { NumStr += LastChar; LastChar = getc(pFile); columnNo++; } while (isdigit(LastChar));
       return returnTok(NumStr, FLOAT_LIT);
     } else {
-      do { // Start of Number: [0-9]+
-        NumStr += LastChar;
-        LastChar = getc(pFile);
-        columnNo++;
-      } while (isdigit(LastChar));
-
-      if (LastChar == '.') { // Floatingpoint Number: [0-9]+.[0-9]+)
-        do {
-          NumStr += LastChar;
-          LastChar = getc(pFile);
-          columnNo++;
-        } while (isdigit(LastChar));
-
-        // FloatVal = strtof(NumStr.c_str(), nullptr);
+      do { NumStr += LastChar; LastChar = getc(pFile); columnNo++; } while (isdigit(LastChar));
+      if (LastChar == '.') {
+        do { NumStr += LastChar; LastChar = getc(pFile); columnNo++; } while (isdigit(LastChar));
         return returnTok(NumStr, FLOAT_LIT);
-      } else { // Integer : [0-9]+
-        // IntVal = strtod(NumStr.c_str(), nullptr);
+      } else {
         return returnTok(NumStr, INT_LIT);
       }
     }
   }
 
   if (LastChar == '&') {
-    NextChar = getc(pFile);
-    if (NextChar == '&') { // AND: &&
-      LastChar = getc(pFile);
-      columnNo += 2;
-      return returnTok("&&", AND);
-    } else {
-      LastChar = NextChar;
-      columnNo++;
-      return returnTok("&", int('&'));
-    }
+    int NextChar = getc(pFile);
+    if (NextChar == '&') { LastChar = getc(pFile); columnNo += 2; return returnTok("&&", AND); }
+    else { LastChar = NextChar; columnNo++; return returnTok("&", int('&')); }
   }
 
   if (LastChar == '|') {
-    NextChar = getc(pFile);
-    if (NextChar == '|') { // OR: ||
-      LastChar = getc(pFile);
-      columnNo += 2;
-      return returnTok("||", OR);
-    } else {
-      LastChar = NextChar;
-      columnNo++;
-      return returnTok("|", int('|'));
-    }
+    int NextChar = getc(pFile);
+    if (NextChar == '|') { LastChar = getc(pFile); columnNo += 2; return returnTok("||", OR); }
+    else { LastChar = NextChar; columnNo++; return returnTok("|", int('|')); }
   }
 
   if (LastChar == '!') {
-    NextChar = getc(pFile);
-    if (NextChar == '=') { // NE: !=
-      LastChar = getc(pFile);
-      columnNo += 2;
-      return returnTok("!=", NE);
-    } else {
-      LastChar = NextChar;
-      columnNo++;
-      return returnTok("!", NOT);
-      ;
-    }
+    int NextChar = getc(pFile);
+    if (NextChar == '=') { LastChar = getc(pFile); columnNo += 2; return returnTok("!=", NE); }
+    else { LastChar = NextChar; columnNo++; return returnTok("!", NOT); }
   }
 
   if (LastChar == '<') {
-    NextChar = getc(pFile);
-    if (NextChar == '=') { // LE: <=
-      LastChar = getc(pFile);
-      columnNo += 2;
-      return returnTok("<=", LE);
-    } else {
-      LastChar = NextChar;
-      columnNo++;
-      return returnTok("<", LT);
-    }
+    int NextChar = getc(pFile);
+    if (NextChar == '=') { LastChar = getc(pFile); columnNo += 2; return returnTok("<=", LE); }
+    else { LastChar = NextChar; columnNo++; return returnTok("<", LT); }
   }
 
   if (LastChar == '>') {
-    NextChar = getc(pFile);
-    if (NextChar == '=') { // GE: >=
-      LastChar = getc(pFile);
-      columnNo += 2;
-      return returnTok(">=", GE);
-    } else {
-      LastChar = NextChar;
-      columnNo++;
-      return returnTok(">", GT);
-    }
+    int NextChar = getc(pFile);
+    if (NextChar == '=') { LastChar = getc(pFile); columnNo += 2; return returnTok(">=", GE); }
+    else { LastChar = NextChar; columnNo++; return returnTok(">", GT); }
   }
 
-  if (LastChar == '/') { // could be division or could be the start of a comment
+  if (LastChar == '/') {
     LastChar = getc(pFile);
     columnNo++;
-    if (LastChar == '/') { // definitely a comment
-      do {
-        LastChar = getc(pFile);
-        columnNo++;
-      } while (LastChar != EOF && LastChar != '\n' && LastChar != '\r');
-
-      if (LastChar != EOF)
-        return gettok();
-    } else
-      return returnTok("/", DIV);
+    if (LastChar == '/') {
+      do { LastChar = getc(pFile); columnNo++; } while (LastChar != EOF && LastChar != '\n' && LastChar != '\r');
+      if (LastChar != EOF) return gettok();
+    } else return returnTok("/", DIV);
   }
 
-  // Check for end of file.  Don't eat the EOF.
-  if (LastChar == EOF) {
-    columnNo++;
-    return returnTok("0", EOF_TOK);
-  }
+  if (LastChar == EOF) { columnNo++; return returnTok("0", EOF_TOK); }
 
-  // Otherwise, just return the character as its ascii value.
   int ThisChar = LastChar;
   std::string s(1, ThisChar);
   LastChar = getc(pFile);
@@ -401,29 +279,21 @@ static TOKEN gettok() {
 }
 
 //===----------------------------------------------------------------------===//
-// Parser
+// Parser & AST Setup
 //===----------------------------------------------------------------------===//
 
-/// CurTok/getNextToken - Provide a simple token buffer.  CurTok is the current
-/// token the parser is looking at.  getNextToken reads another token from the
-/// lexer and updates CurTok with its results.
 static TOKEN CurTok;
 static std::deque<TOKEN> tok_buffer;
 
 static TOKEN getNextToken() {
-
-  if (tok_buffer.size() == 0)
-    tok_buffer.push_back(gettok());
-
+  if (tok_buffer.size() == 0) tok_buffer.push_back(gettok());
   TOKEN temp = tok_buffer.front();
   tok_buffer.pop_front();
-
   return CurTok = temp;
 }
 
 static void putBackToken(TOKEN tok) { tok_buffer.push_front(tok); }
 
-// Helper functions for FIRST sets (Task 1.2.3) 
 static bool isType(int tokType) {
   return (tokType == INT_TOK || tokType == FLOAT_TOK || tokType == BOOL_TOK || tokType == VOID_TOK);
 }
@@ -434,14 +304,48 @@ static bool isExprStart(int tokType) {
           tokType == LPAR);
 }
 
-/// ASTnode (Task 1.2.2)- Base class for all AST nodes.
+//===----------------------------------------------------------------------===//
+// Code Generation Globals
+//===----------------------------------------------------------------------===//
 
-// Helper to generate indentation
-std::string getIndent(int d) {
-  return std::string(d * 2, ' '); // 2 spaces per level
+static LLVMContext TheContext;
+static IRBuilder<> Builder(TheContext);
+static std::unique_ptr<Module> TheModule;
+static std::map<std::string, AllocaInst *> NamedValues;
+static std::map<std::string, GlobalVariable *> GlobalNamedValues;
+static std::map<std::string, Function *> FunctionProtos;
+
+Value *LogErrorV(const char *Str) {
+  fprintf(stderr, "Error: %s\n", Str);
+  return nullptr;
 }
 
-// Helper to convert operator tokens to strings for printing
+// Helper to create an alloca in the entry block of a function.
+static AllocaInst *CreateEntryBlockAlloca(Function *TheFunction, StringRef VarName, Type *Ty) {
+  IRBuilder<> TmpB(&TheFunction->getEntryBlock(), TheFunction->getEntryBlock().begin());
+  return TmpB.CreateAlloca(Ty, nullptr, VarName);
+}
+
+// Helper for Semantic Analysis: Get LLVM Type for MiniC Types
+Type *getLLVMType(StringRef typeStr) {
+    if (typeStr == "int") return Type::getInt32Ty(TheContext);
+    if (typeStr == "float") return Type::getFloatTy(TheContext);
+    if (typeStr == "bool") return Type::getInt1Ty(TheContext);
+    if (typeStr == "void") return Type::getVoidTy(TheContext);
+    return nullptr;
+}
+
+//===----------------------------------------------------------------------===//
+// AST Nodes
+//===----------------------------------------------------------------------===//
+
+// ANSI Color Codes for Clang-like output
+const std::string RESET   = "\033[0m";
+const std::string GREEN   = "\033[1;32m"; 
+const std::string CYAN    = "\033[0;36m"; 
+const std::string YELLOW  = "\033[0;33m"; 
+const std::string MAGENTA = "\033[0;35m"; 
+
 std::string tokenLabel(int tok) {
   if (tok == PLUS) return "+";
   if (tok == MINUS) return "-";
@@ -461,135 +365,294 @@ std::string tokenLabel(int tok) {
   return "unknown_op";
 }
 
-class ASTnode {
+class VariableASTnode; // Forward Declaration
 
+class ASTnode {
 public:
   virtual ~ASTnode() {}
-  virtual Value *codegen() { return nullptr; };
-  // Update to accept depth
-  virtual std::string to_string(int d = 0) const { return ""; };
+  virtual Value *codegen() = 0;
+  virtual void print(llvm::raw_ostream &os, std::string prefix, bool isLast) const = 0;
+  virtual std::string to_string(int d = 0) const { return ""; }
+  // Add Helper to cast to variable safely without RTTI
+  virtual VariableASTnode *asVariable() { return nullptr; }
 };
 
-// Global operator for printing
 llvm::raw_ostream& operator<<(llvm::raw_ostream& os, const ASTnode& ast) {
-  os << ast.to_string(0);
+  ast.print(os, "", true);
   return os;
 }
 
-/// IntASTnode - Class for integer literals like 1, 2, 10,
+void printNode(llvm::raw_ostream &os, std::string prefix, bool isLast, 
+               std::string nodeName, int line, int col, std::string extra = "") {
+    os << prefix;
+    os << (isLast ? "`-" : "|-");
+    os << GREEN << nodeName << RESET << " ";
+    if (line > 0) os << CYAN << "<line:" << line << ":" << col << ">" << RESET << " ";
+    else os << CYAN << "<invalid sloc>" << RESET << " ";
+    if (!extra.empty()) os << YELLOW << extra << RESET;
+    os << "\n";
+}
+
+// === Expressions ===
+
 class IntASTnode : public ASTnode {
   int Val;
   TOKEN Tok;
 public:
   IntASTnode(TOKEN tok, int val) : Val(val), Tok(tok) {}
-  std::string to_string(int d) const override {
-    return getIndent(d) + "IntLit: " + std::to_string(Val) + "\n";
+  
+  Value *codegen() override {
+      return ConstantInt::get(TheContext, APInt(32, Val, true));
+  }
+
+  void print(llvm::raw_ostream &os, std::string prefix, bool isLast) const override {
+    printNode(os, prefix, isLast, "IntegerLiteral", Tok.lineNo, Tok.columnNo, std::to_string(Val));
   }
 };
 
-/// BoolASTnode - Class for boolean literals true and false,
-class BoolASTnode : public ASTnode {
-  bool Bool;
-  TOKEN Tok;
-
-public:
-  BoolASTnode(TOKEN tok, bool B) : Bool(B), Tok(tok) {}
-  std::string to_string(int d) const override {
-    return getIndent(d) + "BoolLit: " + (Bool ? "true" : "false") + "\n";
-  }
-};
-
-/// FloatASTnode - Node class for floating point literals like "1.0".
 class FloatASTnode : public ASTnode {
   double Val;
   TOKEN Tok;
-
 public:
   FloatASTnode(TOKEN tok, double Val) : Val(Val), Tok(tok) {}
-  std::string to_string(int d) const override {
-    return getIndent(d) + "FloatLit: " + std::to_string(Val) + "\n";
+  
+  Value *codegen() override {
+      return ConstantFP::get(TheContext, APFloat(Val));
+  }
+
+  void print(llvm::raw_ostream &os, std::string prefix, bool isLast) const override {
+    printNode(os, prefix, isLast, "FloatingLiteral", Tok.lineNo, Tok.columnNo, std::to_string(Val));
   }
 };
 
-/// VariableASTnode - Class for referencing a variable (i.e. identifier), like
-/// "a".
-enum IDENT_TYPE { IDENTIFIER = 0 };
+class BoolASTnode : public ASTnode {
+  bool Bool;
+  TOKEN Tok;
+public:
+  BoolASTnode(TOKEN tok, bool B) : Bool(B), Tok(tok) {}
+  
+  Value *codegen() override {
+      return ConstantInt::get(TheContext, APInt(1, Bool ? 1 : 0));
+  }
 
+  void print(llvm::raw_ostream &os, std::string prefix, bool isLast) const override {
+    printNode(os, prefix, isLast, "CXXBoolLiteralExpr", Tok.lineNo, Tok.columnNo, Bool ? "true" : "false");
+  }
+};
+
+enum IDENT_TYPE { IDENTIFIER = 0 };
 class VariableASTnode : public ASTnode {
 protected:
   TOKEN Tok;
   std::string Name;
   IDENT_TYPE VarType;
-
 public:
   VariableASTnode(TOKEN tok, const std::string &Name)
       : Tok(tok), Name(Name), VarType(IDENT_TYPE::IDENTIFIER) {}
   const std::string &getName() const { return Name; }
-  std::string to_string(int d) const override {
-    return getIndent(d) + "Variable: " + Name + "\n";
+  int getLine() const { return Tok.lineNo; }
+  int getCol() const { return Tok.columnNo; }
+  
+  // Override to return this
+  VariableASTnode *asVariable() override { return this; }
+
+  Value *codegen() override {
+      // 1. Look in local variables
+      Value *V = NamedValues[Name];
+      if (!V) {
+          // 2. Look in global variables
+          if (GlobalNamedValues.find(Name) != GlobalNamedValues.end()) {
+              V = GlobalNamedValues[Name];
+          } else {
+              return LogErrorV(("Unknown variable name: " + Name).c_str());
+          }
+      }
+      // Load the value from the alloca address
+      // We need to know the type. If it's an AllocaInst, getAllocatedType gives the type.
+      Type *Ty = nullptr;
+      if (auto *AI = dyn_cast<AllocaInst>(V)) Ty = AI->getAllocatedType();
+      else if (auto *GV = dyn_cast<GlobalVariable>(V)) Ty = GV->getValueType();
+      
+      return Builder.CreateLoad(Ty, V, Name.c_str());
+  }
+
+  void print(llvm::raw_ostream &os, std::string prefix, bool isLast) const override {
+    printNode(os, prefix, isLast, "DeclRefExpr", Tok.lineNo, Tok.columnNo, "'" + Name + "'");
   }
 };
 
-// Binary Expression Node (Task 1.2.2)
 class BinaryExprAST : public ASTnode {
   int Op;
   std::unique_ptr<ASTnode> LHS, RHS;
 public:
   BinaryExprAST(int op, std::unique_ptr<ASTnode> lhs, std::unique_ptr<ASTnode> rhs)
     : Op(op), LHS(std::move(lhs)), RHS(std::move(rhs)) {}
-  std::string to_string(int d) const override {
-    std::string s = getIndent(d) + "BinaryExpr: " + tokenLabel(Op) + "\n";
-    if (LHS) s += LHS->to_string(d + 1);
-    if (RHS) s += RHS->to_string(d + 1);
-    return s;
+  
+  Value *codegen() override {
+      // Special Case: Assignment
+      if (Op == ASSIGN) {
+           auto *VarNode = LHS->asVariable(); // Use safe cast
+           if (!VarNode) return LogErrorV("LHS of '=' must be a variable");
+           
+           // Generate RHS
+           Value *Val = RHS->codegen();
+           if (!Val) return nullptr;
+           
+           // Look up Variable Address
+           Value *Variable = NamedValues[VarNode->getName()];
+           if (!Variable) {
+               if (GlobalNamedValues.find(VarNode->getName()) != GlobalNamedValues.end()) {
+                   Variable = GlobalNamedValues[VarNode->getName()];
+               } else {
+                   return LogErrorV("Unknown variable in assignment");
+               }
+           }
+           
+           // Implicit Widening Logic for Assignment
+           Type *VarType = nullptr;
+           if(auto *AI = dyn_cast<AllocaInst>(Variable)) VarType = AI->getAllocatedType();
+           else if(auto *GV = dyn_cast<GlobalVariable>(Variable)) VarType = GV->getValueType();
+
+           if (VarType->isFloatTy() && Val->getType()->isIntegerTy()) {
+               Val = Builder.CreateSIToFP(Val, Type::getFloatTy(TheContext), "widen");
+           }
+
+           Builder.CreateStore(Val, Variable);
+           return Val;
+      }
+
+      Value *L = LHS->codegen();
+      Value *R = RHS->codegen();
+      if (!L || !R) return nullptr;
+      
+      // Implicit Widening for Binary Ops (int + float -> float + float)
+      bool isFloat = L->getType()->isFloatTy() || R->getType()->isFloatTy();
+      if (isFloat) {
+          if (L->getType()->isIntegerTy()) L = Builder.CreateSIToFP(L, Type::getFloatTy(TheContext), "castL");
+          if (R->getType()->isIntegerTy()) R = Builder.CreateSIToFP(R, Type::getFloatTy(TheContext), "castR");
+      }
+
+      if (isFloat) {
+          switch (Op) {
+            case PLUS: return Builder.CreateFAdd(L, R, "addtmp");
+            case MINUS: return Builder.CreateFSub(L, R, "subtmp");
+            case ASTERIX: return Builder.CreateFMul(L, R, "multmp");
+            case DIV: return Builder.CreateFDiv(L, R, "divtmp");
+            case LT: L = Builder.CreateFCmpOLT(L, R, "cmptmp"); return Builder.CreateUIToFP(L, Type::getFloatTy(TheContext)); // C returns 1.0/0.0 or int? Spec says bools are int-like. MiniC semantics usually bool.
+            case GT: L = Builder.CreateFCmpOGT(L, R, "cmptmp"); return Builder.CreateUIToFP(L, Type::getFloatTy(TheContext));
+            // Add more float comparisons if needed...
+            default: return LogErrorV("Invalid binary operator for floating point");
+          }
+      } else {
+          switch (Op) {
+            case PLUS: return Builder.CreateAdd(L, R, "addtmp");
+            case MINUS: return Builder.CreateSub(L, R, "subtmp");
+            case ASTERIX: return Builder.CreateMul(L, R, "multmp");
+            case DIV: return Builder.CreateSDiv(L, R, "divtmp");
+            case MOD: return Builder.CreateSRem(L, R, "remtmp");
+            case LT: return Builder.CreateICmpSLT(L, R, "cmptmp");
+            case LE: return Builder.CreateICmpSLE(L, R, "cmptmp");
+            case GT: return Builder.CreateICmpSGT(L, R, "cmptmp");
+            case GE: return Builder.CreateICmpSGE(L, R, "cmptmp");
+            case EQ: return Builder.CreateICmpEQ(L, R, "cmptmp");
+            case NE: return Builder.CreateICmpNE(L, R, "cmptmp");
+            case AND: return Builder.CreateAnd(L, R, "andtmp");
+            case OR: return Builder.CreateOr(L, R, "ortmp");
+            default: return LogErrorV("Invalid binary operator");
+          }
+      }
+  }
+
+  void print(llvm::raw_ostream &os, std::string prefix, bool isLast) const override {
+    printNode(os, prefix, isLast, "BinaryOperator", 0, 0, "'" + tokenLabel(Op) + "'");
+    std::string childPrefix = prefix + (isLast ? "  " : "| ");
+    if (LHS) LHS->print(os, childPrefix, false);
+    if (RHS) RHS->print(os, childPrefix, true);
   }
 };
 
-// Unary Expression Node (Task 1.2.2)
 class UnaryExprAST : public ASTnode {
   int Op;
   std::unique_ptr<ASTnode> Operand;
 public:
   UnaryExprAST(int op, std::unique_ptr<ASTnode> operand)
     : Op(op), Operand(std::move(operand)) {}
-  std::string to_string(int d) const override {
-    std::string s = getIndent(d) + "UnaryExpr: " + tokenLabel(Op) + "\n";
-    if (Operand) s += Operand->to_string(d + 1);
-    return s;
+  
+  Value *codegen() override {
+      Value *OpV = Operand->codegen();
+      if (!OpV) return nullptr;
+      
+      if (Op == MINUS) {
+          if (OpV->getType()->isFloatTy()) return Builder.CreateFNeg(OpV, "negtmp");
+          return Builder.CreateNeg(OpV, "negtmp");
+      } else if (Op == NOT) {
+          // '!' operator
+          return Builder.CreateNot(OpV, "nottmp");
+      }
+      return LogErrorV("Unknown unary operator");
+  }
+
+  void print(llvm::raw_ostream &os, std::string prefix, bool isLast) const override {
+    printNode(os, prefix, isLast, "UnaryOperator", 0, 0, "'" + tokenLabel(Op) + "'");
+    std::string childPrefix = prefix + (isLast ? "  " : "| ");
+    if (Operand) Operand->print(os, childPrefix, true);
   }
 };
 
-// Function Call Node (Task 1.2.2)
 class CallExprAST : public ASTnode {
   std::string Callee;
   std::vector<std::unique_ptr<ASTnode>> Args;
 public:
   CallExprAST(const std::string &callee, std::vector<std::unique_ptr<ASTnode>> args)
     : Callee(callee), Args(std::move(args)) {}
-  std::string to_string(int d) const override {
-    std::string s = getIndent(d) + "Call: " + Callee + "\n";
-    for (auto &arg : Args) s += arg->to_string(d + 1);
-    return s;
+  
+  Value *codegen() override {
+      Function *CalleeF = TheModule->getFunction(Callee);
+      if (!CalleeF) return LogErrorV("Unknown function referenced");
+
+      if (CalleeF->arg_size() != Args.size())
+          return LogErrorV("Incorrect # arguments passed");
+
+      std::vector<Value *> ArgsV;
+      for (unsigned i = 0, e = Args.size(); i != e; ++i) {
+          Value *ArgVal = Args[i]->codegen();
+          if (!ArgVal) return nullptr;
+          
+          // Widen arg if needed
+          Type *ExpectedTy = CalleeF->getArg(i)->getType();
+          if (ExpectedTy->isFloatTy() && ArgVal->getType()->isIntegerTy()) {
+              ArgVal = Builder.CreateSIToFP(ArgVal, Type::getFloatTy(TheContext), "arg_widen");
+          }
+          ArgsV.push_back(ArgVal);
+      }
+
+      return Builder.CreateCall(CalleeF, ArgsV, "calltmp");
+  }
+
+  void print(llvm::raw_ostream &os, std::string prefix, bool isLast) const override {
+    printNode(os, prefix, isLast, "CallExpr", 0, 0, Callee);
+    std::string childPrefix = prefix + (isLast ? "  " : "| ");
+    for (size_t i = 0; i < Args.size(); ++i) {
+        Args[i]->print(os, childPrefix, i == Args.size() - 1);
+    }
   }
 };
 
-/// ParamAST - Class for a parameter declaration
 class ParamAST {
   std::string Name;
   std::string Type;
-
 public:
   ParamAST(const std::string &name, const std::string &type)
       : Name(name), Type(type) {}
   const std::string &getName() const { return Name; }
   const std::string &getType() const { return Type; }
-  // Helper to_string 
-  std::string to_string(int d) const {
-    return getIndent(d) + "Param: " + Type + " " + Name + "\n";
+  
+  void print(llvm::raw_ostream &os, std::string prefix, bool isLast) const {
+      os << prefix << (isLast ? "`-" : "|-") << GREEN << "ParmVarDecl" << RESET << " "; 
+      os << YELLOW << Name << " '" << Type << "'" << RESET << "\n";
   }
 };
 
-/// FunctionPrototypeAST - Class for a function declaration's signature
 class FunctionPrototypeAST : public ASTnode {
   std::string Name;
   std::string Type;
@@ -600,64 +663,112 @@ public:
       : Name(name), Type(type), Params(std::move(params)) {}
    
   const std::string &getName() const { return Name; }
+  const std::string &getType() const { return Type; }
   std::vector<std::unique_ptr<ParamAST>> &getParams() { return Params; }
 
-  std::string to_string(int d) const override {
-      std::string s = getIndent(d) + "Prototype: " + Type + " " + Name + "\n";
-      for(auto &p : Params) s += p->to_string(d + 1);
-      return s;
+  Value *codegen() override {
+      // 1. Arg Types
+      std::vector<llvm::Type*> Doubles;
+      for(auto &p : Params) {
+          Doubles.push_back(getLLVMType(p->getType()));
+      }
+
+      // 2. Function Type
+      FunctionType *FT = FunctionType::get(getLLVMType(Type), Doubles, false);
+      Function *F = Function::Create(FT, Function::ExternalLinkage, Name, TheModule.get());
+
+      // 3. Named Args
+      unsigned Idx = 0;
+      for (auto &Arg : F->args())
+          Arg.setName(Params[Idx++]->getName());
+          
+      FunctionProtos[Name] = F;
+      return F;
+  }
+
+  void print(llvm::raw_ostream &os, std::string prefix, bool isLast) const override {
+      printNode(os, prefix, isLast, "FunctionDecl", 0, 0, Name + " '" + Type + "'");
+      std::string childPrefix = prefix + (isLast ? "  " : "| ");
+      for(size_t i = 0; i < Params.size(); ++i) {
+          Params[i]->print(os, childPrefix, i == Params.size() - 1);
+      }
   }
 };
 
-// New Program Root Node
 class ProgramAST : public ASTnode {
     std::vector<std::unique_ptr<ASTnode>> Elements;
 public:
     ProgramAST(std::vector<std::unique_ptr<ASTnode>> elements) 
         : Elements(std::move(elements)) {}
-    std::string to_string(int d) const override {
-        std::string s = "Program:\n";
-        for(auto &e : Elements) s += e->to_string(d + 1);
-        return s;
+    
+    Value *codegen() override {
+        for (auto &e : Elements) {
+            if(e->codegen() == nullptr) return nullptr;
+        }
+        return Constant::getNullValue(Type::getInt32Ty(TheContext)); // dummy return
+    }
+
+    void print(llvm::raw_ostream &os, std::string prefix, bool isLast) const override {
+        printNode(os, prefix, isLast, "TranslationUnitDecl", 0, 0);
+        std::string childPrefix = prefix + (isLast ? "  " : "| "); 
+        for (size_t i = 0; i < Elements.size(); ++i) {
+            Elements[i]->print(os, childPrefix, i == Elements.size() - 1);
+        }
     }
 };
 
-/// DeclAST - Base class for declarations, variables and functions
 class DeclAST : public ASTnode {
-
 public:
   virtual ~DeclAST() {}
 };
 
-/// VarDeclAST - Class for a variable declaration
 class VarDeclAST : public DeclAST {
   std::unique_ptr<VariableASTnode> Var;
   std::string Type;
-
 public:
   VarDeclAST(std::unique_ptr<VariableASTnode> var, const std::string &type)
       : Var(std::move(var)), Type(type) {}
-  const std::string &getName() const { return Var->getName(); }
-  std::string to_string(int d) const override {
-      return getIndent(d) + "VarDecl: " + Type + " " + Var->getName() + "\n";
+  
+  Value *codegen() override {
+      Function *TheFunction = Builder.GetInsertBlock()->getParent();
+      llvm::Type* LLVMTy = getLLVMType(Type);
+      
+      AllocaInst *Alloca = CreateEntryBlockAlloca(TheFunction, Var->getName(), LLVMTy);
+      NamedValues[Var->getName()] = Alloca;
+
+      // Initialize to 0
+      Value *InitVal = Constant::getNullValue(LLVMTy);
+      return Builder.CreateStore(InitVal, Alloca);
+  }
+  
+  void print(llvm::raw_ostream &os, std::string prefix, bool isLast) const override {
+      printNode(os, prefix, isLast, "VarDecl", Var->getLine(), Var->getCol(), Var->getName() + " '" + Type + "'");
   }
 };
 
-/// GlobVarDeclAST - Class for a Global variable declaration
 class GlobVarDeclAST : public DeclAST {
   std::unique_ptr<VariableASTnode> Var;
   std::string Type;
-
 public:
   GlobVarDeclAST(std::unique_ptr<VariableASTnode> var, const std::string &type)
       : Var(std::move(var)), Type(type) {}
-  std::string to_string(int d) const override {
-      return getIndent(d) + "GlobVarDecl: " + Type + " " + Var->getName() + "\n";
+  
+  Value *codegen() override {
+      TheModule->getOrInsertGlobal(Var->getName(), getLLVMType(Type));
+      GlobalVariable *gVar = TheModule->getNamedGlobal(Var->getName());
+      gVar->setLinkage(GlobalValue::CommonLinkage);
+      gVar->setInitializer(Constant::getNullValue(getLLVMType(Type)));
+      GlobalNamedValues[Var->getName()] = gVar;
+      return gVar;
+  }
+
+  void print(llvm::raw_ostream &os, std::string prefix, bool isLast) const override {
+      printNode(os, prefix, isLast, "VarDecl", Var->getLine(), Var->getCol(), Var->getName() + " '" + Type + "'");
   }
 };
 
+// === Statements ===
 
-/// BlockAST - Class for a block with declarations followed by statements
 class BlockAST : public ASTnode {
   std::vector<std::unique_ptr<VarDeclAST>> LocalDecls;
   std::vector<std::unique_ptr<ASTnode>> Stmts;
@@ -666,33 +777,88 @@ public:
            std::vector<std::unique_ptr<ASTnode>> stmts)
       : LocalDecls(std::move(localDecls)), Stmts(std::move(stmts)) {}
   
-  std::string to_string(int d) const override {
-      std::string s = getIndent(d) + "Block:\n";
-      for(auto &v : LocalDecls) s += v->to_string(d + 1);
-      for(auto &st : Stmts) s += st->to_string(d + 1);
-      return s;
+  Value *codegen() override {
+      // MiniC spec allows local var re-declarations. We overwrite NamedValues.
+      // A proper implementation might need to restore old values if we had nested blocks in a single function.
+      // But typically recursive descent handles this by structure.
+      
+      for(auto &d : LocalDecls) d->codegen();
+      for(auto &s : Stmts) s->codegen();
+      
+      return Constant::getNullValue(Type::getInt32Ty(TheContext));
+  }
+
+  void print(llvm::raw_ostream &os, std::string prefix, bool isLast) const override {
+      printNode(os, prefix, isLast, "CompoundStmt", 0, 0);
+      std::string childPrefix = prefix + (isLast ? "  " : "| ");
+      
+      for (size_t i = 0; i < LocalDecls.size(); ++i) {
+          bool last = (Stmts.empty() && i == LocalDecls.size() - 1);
+          LocalDecls[i]->print(os, childPrefix, last);
+      }
+      for (size_t i = 0; i < Stmts.size(); ++i) {
+          Stmts[i]->print(os, childPrefix, i == Stmts.size() - 1);
+      }
   }
 };
 
-/// FunctionDeclAST - This class represents a function definition itself.
 class FunctionDeclAST : public DeclAST {
   std::unique_ptr<FunctionPrototypeAST> Proto;
   std::unique_ptr<ASTnode> Block;
-
 public:
   FunctionDeclAST(std::unique_ptr<FunctionPrototypeAST> Proto,
                   std::unique_ptr<ASTnode> Block)
       : Proto(std::move(Proto)), Block(std::move(Block)) {}
   
-  std::string to_string(int d) const override {
-      std::string s = getIndent(d) + "FunctionDecl:\n";
-      s += Proto->to_string(d + 1);
-      s += Block->to_string(d + 1);
-      return s;
+  Value *codegen() override {
+      Function *TheFunction = TheModule->getFunction(Proto->getName());
+      if (!TheFunction) {
+          TheFunction = (Function*)Proto->codegen();
+      }
+      if (!TheFunction) return nullptr;
+
+      BasicBlock *BB = BasicBlock::Create(TheContext, "entry", TheFunction);
+      Builder.SetInsertPoint(BB);
+
+      NamedValues.clear(); // Clear for new function scope
+      
+      unsigned Idx = 0;
+      auto &Params = Proto->getParams();
+      for (auto &Arg : TheFunction->args()) {
+          // Create alloca for params
+          AllocaInst *Alloca = CreateEntryBlockAlloca(TheFunction, Arg.getName(), Arg.getType());
+          Builder.CreateStore(&Arg, Alloca);
+          NamedValues[Params[Idx++]->getName()] = Alloca;
+      }
+
+      if (Block->codegen()) {
+          // Check terminator
+          // If block didn't end with return, add a dummy return void or 0
+          // But MiniC usually requires return.
+          // LLVM requires basic blocks to end.
+          // We can rely on the user code to be correct or add a safety return?
+          // For safety, if curr block has no terminator:
+          if(!Builder.GetInsertBlock()->getTerminator()) {
+             if (TheFunction->getReturnType()->isVoidTy()) Builder.CreateRetVoid();
+             else Builder.CreateRet(Constant::getNullValue(TheFunction->getReturnType()));
+          }
+          verifyFunction(*TheFunction);
+          return TheFunction;
+      }
+
+      TheFunction->eraseFromParent();
+      return nullptr;
+  }
+
+  void print(llvm::raw_ostream &os, std::string prefix, bool isLast) const override {
+      printNode(os, prefix, isLast, "FunctionDecl", 0, 0, Proto->getName() + " '...'");
+      std::string childPrefix = prefix + (isLast ? "  " : "| ");
+      auto &Params = Proto->getParams();
+      for(auto &p : Params) p->print(os, childPrefix, false);
+      Block->print(os, childPrefix, true);
   }
 };
 
-/// IfExprAST - Expression class for if/then/else.
 class IfExprAST : public ASTnode {
   std::unique_ptr<ASTnode> Cond, Then, Else;
 public:
@@ -700,41 +866,130 @@ public:
             std::unique_ptr<ASTnode> Else)
       : Cond(std::move(Cond)), Then(std::move(Then)), Else(std::move(Else)) {}
   
-  std::string to_string(int d) const override {
-      std::string s = getIndent(d) + "IfStmt:\n";
-      s += getIndent(d+1) + "Condition:\n" + Cond->to_string(d + 2);
-      s += getIndent(d+1) + "Then:\n" + Then->to_string(d + 2);
-      if (Else) s += getIndent(d+1) + "Else:\n" + Else->to_string(d + 2);
-      return s;
+  Value *codegen() override {
+      Value *CondV = Cond->codegen();
+      if (!CondV) return nullptr;
+      
+      // Convert to bool for branching
+      if (!CondV->getType()->isIntegerTy(1)) {
+          if (CondV->getType()->isFloatTy())
+              CondV = Builder.CreateFCmpONE(CondV, ConstantFP::get(TheContext, APFloat(0.0)), "ifcond");
+          else
+              CondV = Builder.CreateICmpNE(CondV, ConstantInt::get(TheContext, APInt(32, 0)), "ifcond");
+      }
+
+      Function *TheFunction = Builder.GetInsertBlock()->getParent();
+      
+      BasicBlock *ThenBB = BasicBlock::Create(TheContext, "then", TheFunction);
+      BasicBlock *ElseBB = BasicBlock::Create(TheContext, "else");
+      BasicBlock *MergeBB = BasicBlock::Create(TheContext, "ifcont");
+
+      Builder.CreateCondBr(CondV, ThenBB, ElseBB);
+      
+      // Emit Then
+      Builder.SetInsertPoint(ThenBB);
+      Then->codegen();
+      if (!Builder.GetInsertBlock()->getTerminator()) Builder.CreateBr(MergeBB);
+      
+      // Emit Else
+      ElseBB->insertInto(TheFunction); // Correct insertion
+      Builder.SetInsertPoint(ElseBB);
+      if (Else) Else->codegen();
+      if (!Builder.GetInsertBlock()->getTerminator()) Builder.CreateBr(MergeBB);
+      
+      // Emit Merge
+      MergeBB->insertInto(TheFunction); // Correct insertion
+      Builder.SetInsertPoint(MergeBB);
+      
+      return Constant::getNullValue(Type::getInt32Ty(TheContext));
+  }
+
+  void print(llvm::raw_ostream &os, std::string prefix, bool isLast) const override {
+      printNode(os, prefix, isLast, "IfStmt", 0, 0);
+      std::string childPrefix = prefix + (isLast ? "  " : "| ");
+      Cond->print(os, childPrefix, false);
+      Then->print(os, childPrefix, Else ? false : true);
+      if (Else) Else->print(os, childPrefix, true);
   }
 };
 
-/// WhileExprAST - Expression class for while.
 class WhileExprAST : public ASTnode {
   std::unique_ptr<ASTnode> Cond, Body;
 public:
   WhileExprAST(std::unique_ptr<ASTnode> cond, std::unique_ptr<ASTnode> body)
       : Cond(std::move(cond)), Body(std::move(body)) {}
   
-  std::string to_string(int d) const override {
-      std::string s = getIndent(d) + "WhileStmt:\n";
-      s += getIndent(d+1) + "Condition:\n" + Cond->to_string(d + 2);
-      s += getIndent(d+1) + "Body:\n" + Body->to_string(d + 2);
-      return s;
+  Value *codegen() override {
+      Function *TheFunction = Builder.GetInsertBlock()->getParent();
+      BasicBlock *LoopBB = BasicBlock::Create(TheContext, "loop", TheFunction);
+      BasicBlock *BodyBB = BasicBlock::Create(TheContext, "loopbody");
+      BasicBlock *AfterBB = BasicBlock::Create(TheContext, "afterloop");
+      
+      Builder.CreateBr(LoopBB);
+      Builder.SetInsertPoint(LoopBB);
+      
+      Value *CondV = Cond->codegen();
+      if (!CondV) return nullptr;
+      
+      if (!CondV->getType()->isIntegerTy(1)) {
+          if (CondV->getType()->isFloatTy())
+              CondV = Builder.CreateFCmpONE(CondV, ConstantFP::get(TheContext, APFloat(0.0)), "loopcond");
+          else
+              CondV = Builder.CreateICmpNE(CondV, ConstantInt::get(TheContext, APInt(32, 0)), "loopcond");
+      }
+      
+      Builder.CreateCondBr(CondV, BodyBB, AfterBB);
+      
+      BodyBB->insertInto(TheFunction); // Correct insertion
+      Builder.SetInsertPoint(BodyBB);
+      Body->codegen();
+      Builder.CreateBr(LoopBB);
+      
+      AfterBB->insertInto(TheFunction); // Correct insertion
+      Builder.SetInsertPoint(AfterBB);
+      
+      return Constant::getNullValue(Type::getInt32Ty(TheContext));
+  }
+
+  void print(llvm::raw_ostream &os, std::string prefix, bool isLast) const override {
+      printNode(os, prefix, isLast, "WhileStmt", 0, 0);
+      std::string childPrefix = prefix + (isLast ? "  " : "| ");
+      Cond->print(os, childPrefix, false);
+      Body->print(os, childPrefix, true);
   }
 };
 
-/// ReturnAST - Class for a return value
 class ReturnAST : public ASTnode {
   std::unique_ptr<ASTnode> Val;
 public:
   ReturnAST(std::unique_ptr<ASTnode> value) : Val(std::move(value)) {}
   
-  std::string to_string(int d) const override {
-      std::string s = getIndent(d) + "ReturnStmt:\n";
-      if (Val) s += Val->to_string(d + 1);
-      else s += getIndent(d+1) + "(void)\n";
-      return s;
+  Value *codegen() override {
+      Value *RetVal = nullptr;
+      if (Val) {
+          RetVal = Val->codegen();
+          if (!RetVal) return nullptr;
+          
+          // Check if we need to widen return type to match function signature?
+          // Ideally, we should look up current function return type.
+          Function *F = Builder.GetInsertBlock()->getParent();
+          Type *RetTy = F->getReturnType();
+          if (RetTy->isFloatTy() && RetVal->getType()->isIntegerTy()) {
+              RetVal = Builder.CreateSIToFP(RetVal, RetTy, "ret_cast");
+          }
+          Builder.CreateRet(RetVal);
+      } else {
+          Builder.CreateRetVoid();
+      }
+      return RetVal ? RetVal : Constant::getNullValue(Type::getInt32Ty(TheContext));
+  }
+
+  void print(llvm::raw_ostream &os, std::string prefix, bool isLast) const override {
+      printNode(os, prefix, isLast, "ReturnStmt", 0, 0);
+      if (Val) {
+          std::string childPrefix = prefix + (isLast ? "  " : "| ");
+          Val->print(os, childPrefix, true);
+      }
   }
 };
 
@@ -1236,22 +1491,6 @@ static std::unique_ptr<ProgramAST> parser() {
 }
 
 //===----------------------------------------------------------------------===//
-// Code Generation
-//===----------------------------------------------------------------------===//
-
-static LLVMContext TheContext;
-static IRBuilder<> Builder(TheContext);
-static std::unique_ptr<Module> TheModule;
-
-//===----------------------------------------------------------------------===//
-// AST Printer
-//===----------------------------------------------------------------------===//
-
-// void IntASTnode::display(int tabs) {
-//   printf("%s\n",getType().c_str());
-// }
-
-//===----------------------------------------------------------------------===//
 // Main driver code.
 //===----------------------------------------------------------------------===//
 
@@ -1272,9 +1511,19 @@ int main(int argc, char **argv) {
    
   fprintf(stderr, "Parsing Finished\n");
 
-  // Print the AST (This is the goal of Task 3)
+  // Print the AST (Task 1)
   if (RootAST) {
       llvm::outs() << *RootAST << "\n";
+  }
+
+  // Generate IR (Task 2)
+  if (RootAST) {
+      if (RootAST->codegen()) {
+          fprintf(stderr, "Code Generation Finished\n");
+      } else {
+          fprintf(stderr, "Code Generation Failed\n");
+          return 1;
+      }
   }
 
   auto Filename = "output.ll";
