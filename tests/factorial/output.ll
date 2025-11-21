@@ -7,8 +7,8 @@ entry:
   %i = alloca i32, align 4
   %n1 = alloca i32, align 4
   store i32 %n, ptr %n1, align 4
-  store i32 0, ptr %i, align 4
-  store i32 0, ptr %factorial, align 4
+  call void @llvm.memset.p0.i64(ptr %i, i8 0, i64 4, i1 false)
+  call void @llvm.memset.p0.i64(ptr %factorial, i8 0, i64 4, i1 false)
   store i32 1, ptr %factorial, align 4
   store i32 1, ptr %i, align 4
   br label %loop
@@ -16,8 +16,10 @@ entry:
 loop:                                             ; preds = %loopbody, %entry
   %i2 = load i32, ptr %i, align 4
   %n3 = load i32, ptr %n1, align 4
-  %cmptmp = icmp sle i32 %i2, %n3
-  br i1 %cmptmp, label %loopbody, label %afterloop
+  %0 = icmp sle i32 %i2, %n3
+  %1 = zext i1 %0 to i32
+  %2 = icmp ne i32 %1, 0
+  br i1 %2, label %loopbody, label %afterloop
 
 loopbody:                                         ; preds = %loop
   %factorial4 = load i32, ptr %factorial, align 4
@@ -33,3 +35,8 @@ afterloop:                                        ; preds = %loop
   %factorial7 = load i32, ptr %factorial, align 4
   ret i32 %factorial7
 }
+
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
+declare void @llvm.memset.p0.i64(ptr writeonly captures(none), i8, i64, i1 immarg) #0
+
+attributes #0 = { nocallback nofree nounwind willreturn memory(argmem: write) }

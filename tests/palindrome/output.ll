@@ -9,20 +9,22 @@ entry:
   %t = alloca i32, align 4
   %number1 = alloca i32, align 4
   store i32 %number, ptr %number1, align 4
-  store i32 0, ptr %t, align 4
+  call void @llvm.memset.p0.i64(ptr %t, i8 0, i64 4, i1 false)
+  call void @llvm.memset.p0.i64(ptr %rev, i8 0, i64 4, i1 false)
+  call void @llvm.memset.p0.i64(ptr %rmndr, i8 0, i64 4, i1 false)
+  call void @llvm.memset.p0.i64(ptr %result, i8 0, i64 1, i1 false)
   store i32 0, ptr %rev, align 4
-  store i32 0, ptr %rmndr, align 4
-  store i1 false, ptr %result, align 1
-  store i32 0, ptr %rev, align 4
-  store i1 false, ptr %result, align 1
+  store i32 0, ptr %result, align 4
   %number2 = load i32, ptr %number1, align 4
   store i32 %number2, ptr %t, align 4
   br label %loop
 
 loop:                                             ; preds = %loopbody, %entry
   %number3 = load i32, ptr %number1, align 4
-  %cmptmp = icmp sgt i32 %number3, 0
-  br i1 %cmptmp, label %loopbody, label %afterloop
+  %0 = icmp sgt i32 %number3, 0
+  %1 = zext i1 %0 to i32
+  %2 = icmp ne i32 %1, 0
+  br i1 %2, label %loopbody, label %afterloop
 
 loopbody:                                         ; preds = %loop
   %number4 = load i32, ptr %number1, align 4
@@ -41,18 +43,25 @@ loopbody:                                         ; preds = %loop
 afterloop:                                        ; preds = %loop
   %t8 = load i32, ptr %t, align 4
   %rev9 = load i32, ptr %rev, align 4
-  %cmptmp10 = icmp eq i32 %t8, %rev9
-  br i1 %cmptmp10, label %then, label %else
+  %3 = icmp eq i32 %t8, %rev9
+  %4 = zext i1 %3 to i32
+  %5 = icmp ne i32 %4, 0
+  br i1 %5, label %then, label %else
 
 then:                                             ; preds = %afterloop
-  store i1 true, ptr %result, align 1
+  store i32 1, ptr %result, align 4
   br label %ifcont
 
 else:                                             ; preds = %afterloop
-  store i1 false, ptr %result, align 1
+  store i32 0, ptr %result, align 4
   br label %ifcont
 
 ifcont:                                           ; preds = %else, %then
-  %result11 = load i1, ptr %result, align 1
-  ret i1 %result11
+  %result10 = load i1, ptr %result, align 1
+  ret i1 %result10
 }
+
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
+declare void @llvm.memset.p0.i64(ptr writeonly captures(none), i8, i64, i1 immarg) #0
+
+attributes #0 = { nocallback nofree nounwind willreturn memory(argmem: write) }

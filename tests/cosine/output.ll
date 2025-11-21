@@ -12,25 +12,25 @@ entry:
   %cos = alloca float, align 4
   %x1 = alloca float, align 4
   store float %x, ptr %x1, align 4
-  store float 0.000000e+00, ptr %cos, align 4
-  store float 0.000000e+00, ptr %n, align 4
-  store float 0.000000e+00, ptr %term, align 4
-  store float 0.000000e+00, ptr %eps, align 4
-  store float 0.000000e+00, ptr %alt, align 4
-  store double 0x3EB0C6F7A0000000, ptr %eps, align 8
-  store double 1.000000e+00, ptr %n, align 8
-  store double 1.000000e+00, ptr %cos, align 8
-  store double 1.000000e+00, ptr %term, align 8
-  store double sub (double 0.000000e+00, double 1.000000e+00), ptr %alt, align 8
+  call void @llvm.memset.p0.i64(ptr %cos, i8 0, i64 4, i1 false)
+  call void @llvm.memset.p0.i64(ptr %n, i8 0, i64 4, i1 false)
+  call void @llvm.memset.p0.i64(ptr %term, i8 0, i64 4, i1 false)
+  call void @llvm.memset.p0.i64(ptr %eps, i8 0, i64 4, i1 false)
+  call void @llvm.memset.p0.i64(ptr %alt, i8 0, i64 4, i1 false)
+  store float 0x3EB0C6F7A0000000, ptr %eps, align 4
+  store float 1.000000e+00, ptr %n, align 4
+  store float 1.000000e+00, ptr %cos, align 4
+  store float 1.000000e+00, ptr %term, align 4
+  store float -1.000000e+00, ptr %alt, align 4
   br label %loop
 
 loop:                                             ; preds = %loopbody, %entry
   %term2 = load float, ptr %term, align 4
   %eps3 = load float, ptr %eps, align 4
-  %cmptmp = fcmp ogt float %term2, %eps3
-  %0 = uitofp i1 %cmptmp to float
-  %loopcond = fcmp one float %0, double 0.000000e+00
-  br i1 %loopcond, label %loopbody, label %afterloop
+  %0 = fcmp ogt float %term2, %eps3
+  %1 = uitofp i1 %0 to float
+  %2 = fcmp one float %1, double 0.000000e+00
+  br i1 %2, label %loopbody, label %afterloop
 
 loopbody:                                         ; preds = %loop
   %term4 = load float, ptr %term, align 4
@@ -64,3 +64,8 @@ afterloop:                                        ; preds = %loop
   %cos20 = load float, ptr %cos, align 4
   ret float %cos20
 }
+
+; Function Attrs: nocallback nofree nounwind willreturn memory(argmem: write)
+declare void @llvm.memset.p0.i64(ptr writeonly captures(none), i8, i64, i1 immarg) #0
+
+attributes #0 = { nocallback nofree nounwind willreturn memory(argmem: write) }
